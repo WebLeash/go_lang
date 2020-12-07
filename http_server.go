@@ -3,11 +3,22 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 )
 
 func hello(w http.ResponseWriter, req *http.Request) {
 
 	fmt.Fprintf(w, "hello\n")
+
+	fo, err := os.Create("hello.txt")
+	if err != nil {
+		panic(err)
+	}
+	str := "Hello"
+	if _, err := fo.WriteString(str); err != nil {
+		panic(err)
+	}
+
 }
 func bye(w http.ResponseWriter, req *http.Request) {
 
