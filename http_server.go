@@ -1,20 +1,52 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 )
 
+type Message struct {
+	Id   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// curl localhost:8000 -d '{"name":"Hello"}'
+
 func hello(w http.ResponseWriter, req *http.Request) {
 
-	fmt.Fprintf(w, "hello\n")
+	// Read body
+	b, err := ioutil.ReadAll(req.Body)
+	defer req.Body.Close()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	fmt.Println(string(b))
+	var msg Message
+	err = json.Unmarshal(b, &msg)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
-	fo, err := os.Create("hello.txt")
+	output, err := json.Marshal(msg)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	w.Header().Set("content-type", "application/json")
+	w.Write(output)
+
+	fmt.Fprintf(w, "HARBOR\n")
+
+	fo, err := os.Create("Harbor.txt")
 	if err != nil {
 		panic(err)
 	}
-	str := "Hello"
+	str := "Harbor"
 	if _, err := fo.WriteString(str); err != nil {
 		panic(err)
 	}
@@ -40,7 +72,7 @@ func headers(w http.ResponseWriter, req *http.Request) {
 
 func main() {
 
-	http.HandleFunc("/hello", bye)
+	http.HandleFunc("/hello", hello)
 	http.HandleFunc("/headers", headers)
 	http.HandleFunc("/gocd", gocd)
 
