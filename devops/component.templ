@@ -1,0 +1,182 @@
+ 
+# README: https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/688882099/Component.yaml
+
+# appGroup REQUIRED - which group will the "component" belong to?
+# see https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/689144104/metadata+appGroup
+
+owner: !!app!!
+appGroup: !!appGroup!!
+# not exposed via Kong/internet BUT cloudwatch needs to call us
+
+# isIngress OPTIONAL - if component is to be exposed outside the cluster, set to true (defaults to false)
+# see https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/689079103/metadata%3A+isIngress
+isIngress: true
+
+
+# piiProcessor REQUIRED - if you do NOT handle sensitive data, may be set to false to disable authentication
+# see https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/685345313/metadata%3A+piiProcessor
+# no pii here just a list of publicly available govt info
+piiProcessor: false
+
+# poc REQUIRED - is this a Proof of Concept?
+# see https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/683281604/metadata+poc
+poc: false
+
+# templateVersion REQUIRED - set this to the version of the template-chart you are using
+# see https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/685345320/metadata+templateV
+templateVersion: 1.2.3
+
+
+###### RBAC resources ######
+# create RBAC resources by default:
+# https://helm.sh/docs/topics/chart_best_practices/rbac/
+
+
+# serviceAccounts SEMI-OPTIONAL - specify a name for each account required
+# suggested format "<appGroup>-<name_of_component>-acc"
+# see https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/683248303/config%3A+serviceAccounts
+
+serviceAccounts:
+  - name: !!app!!-!!component!!-acc
+    labels:
+      account: !!app!!-!!component!!-acc
+
+###### define your resources, APIs and/or Apps ######
+
+###### Default Environment Config ######
+
+# define your defaults for configMaps, serviceAccounts, services, deployments, and tests
+
+# configMaps OPTIONAL - for creating configMap objects.
+# see https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/683248309/config%3A+configMap
+
+# configMaps for creating configMap objects
+configMaps: {}
+
+# services REQUIRED - specify only one services "component" for a COMPONENT deployment
+# see https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/689014664/config%3A+services
+# services (the kubernetes service)
+services:
+  - component: !!component!!
+    istio: {}
+    isIngress: true
+    port: 80
+    targetPort: 8080
+
+# deployments - a service may have one or more deployments, (aka subsets)
+# repeat the component name but add a "version" element to each deployment
+# for example eg v1, v2 ... or v2-mongo, v2-mysql
+# see https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/689144414/config%3A+deployments
+
+# deployments (several different major versions of a service can be deployed concurrently)
+deployments:
+  - component: !!component!!
+
+  # autoscaling is automagically added but can be tweaked as follows (example in SIT)
+    # autoscaling:
+    #   enabled: true
+    #   maxReplicas: 2
+    #   minReplicas: 2
+    #   targetCPUUtilizationPercentage: 40
+
+    containers:
+      - image: "harbor.k8s-tools.digital.coveahosted.co.uk/development/rspca/!!app!!-!!component!!:!!tag!!"
+        imagePullPolicy: IfNotPresent # supported values: "Always", "IfNotPresent", "Never"
+        name: !!component!!
+        command: ['sh','startup.sh']
+        ports:
+          - containerPort: 8080
+            protocol: TCP
+
+        # some low values to highlight issues early on
+        resources:
+          requests:
+            memory: 256Mi
+            cpu: 50m
+          limits:
+            memory: 320Mi
+            cpu: 500m
+
+        # livenessProbe checks if the container is live or dead; if dead restart the container.
+        # But it can't tell the service if the pod is ok to serve traffic. The readinessProbe is
+        # tell the service if the pod is ok to serve traffic. if it not ok,the pod ip will delete
+        # from service endpoints, so it needs to keep running too.
+        livenessProbe:
+          # is the container dead or alive
+          httpGet:
+            port: 8080
+            path: /healthz/liveness
+          failureThreshold: 3
+          periodSeconds: 30
+          initialDelaySeconds: 3
+          timeoutSeconds: 40
+
+        # startupProbe: removed as we dont have any long running startup to wait for
+
+        readinessProbe:
+          # readiness to serve traffic
+          httpGet:
+            path: /healthz/readiness
+            port: 8080
+          initialDelaySeconds: 3
+          failureThreshold: 3
+          periodSeconds: 30
+          timeoutSeconds: 40
+
+        envFrom:
+          - configMapRef:
+              name: !!app!!-!!component!!-v1-configmap
+        env:
+          - name: TAG_VERSION
+            value: "!!tag_version!!"
+  
+          - name: NEXT_PUBLIC_CONTENT_STACK_API_KEY
+            valueFrom:
+              secretKeyRef:
+                name: !!app!!-!!component!!-secret
+                key: content-stack-api-key
+
+          - name: NEXT_PUBLIC_CONTENT_STACK_DELIVERY_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: !!app!!-!!component!!-secret
+                key: content-stack-delivery-token
+
+          - name: NEXT_PUBLIC_GOOGLE_ANALYTICS
+            valueFrom:
+              secretKeyRef:
+                name: !!app!!-!!component!!-secret
+                key: google-analytics-id
+
+        volumeMounts:
+          - name: rspca-nginx-config-mount
+            mountPath: "/etc/nginx"
+            readOnly: true
+
+    volumes:
+      - name: rspca-nginx-config-mount
+        configMap:           
+          name: !!app!!-!!component!!-v1-configmap
+          items:
+            - key: nginx.conf
+              path: "nginx.conf"
+
+    serviceAccount: !!app!!-!!component!!-acc
+# tests
+# see https://coveaprodcloud.atlassian.net/wiki/spaces/DeliveryPlatform/pages/683248296/config%3A+tests
+tests:
+  - name: !!component!!
+    containers:
+      - name: !!component!!-tests
+        command: ['/bin/sh']
+        args: ['-c', 'apk update; apk add curl; curl -i ${HEALTHCHECK_URL}']
+        image: 'alpine:3.3'
+        tty: true
+        imagePullPolicy: Always
+        env:
+          - name: HEALTHCHECK_URL
+            # please use the kubernetes long form FQDN "<svc>.<namespace>.svc.cluster.local"
+            value: http://!!app!!-!!component!!-svc.anonymous-apps.svc.cluster.local
+
+
+# ENDOFFILE

@@ -7,22 +7,11 @@ import (
 
 func main() {
 	// open input file
-	fi, err := os.Open("input.txt")
+	fi, err := os.Create("hello.txt")
 	if err != nil {
 		panic(err)
 	}
-	// close fi on exit and check for its returned error
-	defer func() {
-		if err := fi.Close(); err != nil {
-			panic(err)
-		}
-	}()
 
-	// open output file
-	fo, err := os.Create("output.txt")
-	if err != nil {
-		panic(err)
-	}
 	// close fo on exit and check for its returned error
 	defer func() {
 		if err := fo.Close(); err != nil {

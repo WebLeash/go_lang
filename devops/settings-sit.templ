@@ -1,0 +1,25 @@
+environment: sit
+
+configMaps:
+    - name: !!app!!-!!component!!-v1-configmap
+      data:
+          LOG_PATH: "/dev/stdout"
+          NEXT_PUBLIC_AFFINITY_ID: "142151"
+          NEXT_PUBLIC_CONTENT_STACK_ENV: sit
+          NEXT_PUBLIC_CONTENT_STACK_CACHE_TIME: "3600"
+          API_ENVIRONMENT: sit
+          PORT: "5000"
+          COMMON_HOST: "https://common-qat-api.coveahosted.co.uk"
+          PET_HOST: "https://pet-qat-api.coveahosted.co.uk"
+          RSPCA_EXISTING_SITE: "https://rspca-petinsurance.com"
+          nginx.conf: |
+            !!nginx-here!!
+
+testSuites:
+    - name: automation-test
+      containerName: !!app!!-!!component!!-automation-test
+      containerImage: harbor.k8s-tools.digital.coveahosted.co.uk/test/rspca/!!project!!-auto-test
+      containerImageTag: !!tag!!
+      gitBranch: release/!!branch!!
+      gitSparseChekoutPath: /covea-platform/automation_tests
+      gitLocation: /covea-digital/trading/applications/!!app!!/!!app!!-!!component!!.git

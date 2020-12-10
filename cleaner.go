@@ -37,7 +37,6 @@ func Cleaner(w http.ResponseWriter, resp *http.Request) {
 	body, err := ioutil.ReadAll(resp.Body)
 	log.Printf("invoke() --> Response\n%s\n", jsonPrettyPrint(string(body)))
 	//log.Printf("invoke() --> Status '%s'\n", resp.Status)
-
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
