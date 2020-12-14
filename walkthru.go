@@ -24,11 +24,18 @@ func main() {
 	}
 	for _, file := range files {
 		data, err := ioutil.ReadFile(file)
+
 		if err != nil {
 			fmt.Println(err)
+
 		}
 
 		fmt.Print(string(data))
 		fmt.Println(file)
+
+	f, err := os.Create("/tmp/dat2")
+		
+	n3, err := f.WriteString("writes\n")
+
 	}
 }
